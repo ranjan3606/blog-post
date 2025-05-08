@@ -274,9 +274,9 @@ const Home = () => {
                     </div>
                   )}
                 </div>
-                <h4 className="mt-1 text-3xl font-extrabold text-[#1a1a1a] leading-tight">
-                  {post.title.length > 30
-                    ? `${post.title.substring(0, 30)}...`
+                <h4 className="mt-1 font-extrabold text-[#1a1a1a] leading-tight">
+                  {post.title.length > 25
+                    ? `${post.title.substring(0, 25)}...`
                     : post.title}
                 </h4>
                 <img
