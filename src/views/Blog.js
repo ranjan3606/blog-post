@@ -1,28 +1,68 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchPostById, clearSelectedPost, fetchPostComments } from '../store/BlogReducer';
 import Button from '../components/Button';
 import { Badge, Card } from 'reactstrap';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import Icon from '../components/Icon';
 import { faThumbsDown, faThumbsUp, faComment, faUser } from '@fortawesome/free-solid-svg-icons';
 
 const Blog = ({ id }) => {
   const dispatch = useDispatch();
   const { selectedPost, status, error } = useSelector((state) => state.blog);
+  const [newComment, setNewComment] = useState('');
+  const [localComments, setLocalComments] = useState([]);
 
   useEffect(() => {
     dispatch(fetchPostById(id));
     dispatch(fetchPostComments(id));
+    
+    loadLocalComments();
+    
     return () => {
       dispatch(clearSelectedPost());
     };
   }, [dispatch, id]);
+
+  const loadLocalComments = () => {
+    const storedComments = localStorage.getItem(`post-${id}-comments`);
+    if (storedComments) {
+      setLocalComments(JSON.parse(storedComments));
+    }
+  };
+
+  const saveComment = () => {
+    if (!newComment.trim()) return;
+    
+    const comment = {
+      id: Date.now(),
+      body: newComment,
+      user: {
+        username: 'You'
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    const updatedComments = [...localComments, comment];
+    setLocalComments(updatedComments);
+    localStorage.setItem(`post-${id}-comments`, JSON.stringify(updatedComments));
+    setNewComment('');
+  };
 
   const handleBackClick = () => {
     // Navigate to home page
     window.history.pushState({}, '', '/');
     // Get the App component to update its state
     window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  // Handle input change for new comment
+  const handleCommentChange = (e) => {
+    setNewComment(e.target.value);
+  };
+
+  // Handle submit comment
+  const handleSubmitComment = () => {
+    saveComment();
   };
 
   if (status === 'loading') {
@@ -38,29 +78,35 @@ const Blog = ({ id }) => {
   }
 
   const renderReactions = (reactions) => {
-      if (typeof reactions === "object" && reactions !== null) {
-        return (
-          <div className="d-flex align-items-center mt-2">
-            <div className="me-3 d-flex align-items-center">
-              <FontAwesomeIcon icon={faThumbsUp} className="text-primary me-1" />
-              <span>{reactions.likes || 0}</span>
-            </div>
-            <div className="d-flex align-items-center">
-              <FontAwesomeIcon icon={faThumbsDown} className="text-danger me-1" />
-              <span>{reactions.dislikes || 0}</span>
-            </div>
-          </div>
-        );
-      }
+    if (typeof reactions === "object" && reactions !== null) {
       return (
         <div className="d-flex align-items-center mt-2">
           <div className="me-3 d-flex align-items-center">
-            <FontAwesomeIcon icon={faThumbsUp} className="text-primary me-1" />
-            <span>{reactions || 0}</span>
+            <Icon icon={faThumbsUp} className="text-primary me-1" />
+            <span>{reactions.likes || 0}</span>
+          </div>
+          <div className="d-flex align-items-center">
+            <Icon icon={faThumbsDown} className="text-danger me-1" />
+            <span>{reactions.dislikes || 0}</span>
           </div>
         </div>
       );
-    };
+    }
+    return (
+      <div className="d-flex align-items-center mt-2">
+        <div className="me-3 d-flex align-items-center">
+          <Icon icon={faThumbsUp} className="text-primary me-1" />
+          <span>{reactions || 0}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Combine API comments and local comments
+  const allComments = [
+    ...(selectedPost.comments || []),
+    ...localComments
+  ];
 
   return (
     <div className="blog-post-container">
@@ -83,17 +129,22 @@ const Blog = ({ id }) => {
       {/* Comments section */}
       <Card className='p-4 mb-3'>
         <h3 className="mb-3">
-          <FontAwesomeIcon icon={faComment} className="me-2" />
+          <Icon icon={faComment} className="me-2" />
           Comments
         </h3>
         
-        {selectedPost.comments && selectedPost.comments.length > 0 ? (
+        {allComments && allComments.length > 0 ? (
           <div className="comments-list">
-            {selectedPost.comments.map(comment => (
+            {allComments.map(comment => (
               <div key={comment.id} className="comment mb-3 p-3" style={{borderBottom: '1px solid #eee'}}>
                 <div className="d-flex align-items-center mb-2">
-                  <FontAwesomeIcon icon={faUser} className="me-2 text-secondary" />
+                  <Icon icon={faUser} className="me-2 text-secondary" />
                   <strong>{comment.user?.username || 'Anonymous'}</strong>
+                  {comment.timestamp && (
+                    <small className="text-muted ms-2">
+                      {new Date(comment.timestamp).toLocaleString()}
+                    </small>
+                  )}
                 </div>
                 <p className="mb-0">{comment.body}</p>
               </div>
@@ -112,9 +163,11 @@ const Blog = ({ id }) => {
             className="form-control" 
             rows="3" 
             placeholder="Write your comment here..."
+            value={newComment}
+            onChange={handleCommentChange}
           ></textarea>
         </div>
-        <Button>Submit Comment</Button>
+        <Button onClick={handleSubmitComment}>Submit Comment</Button>
       </Card>
     </div>
   );
